@@ -1,0 +1,224 @@
+import numpy as np
+from pathlib import Path
+from PIL import Image
+
+import imgaug as ia
+import imgaug.augmenters as iaa
+
+import torch
+from torch.utils.data import Dataset
+from torchvision import transforms
+
+from pycocotools.coco import COCO as pyCOCO
+
+class COCO(Dataset):
+
+    def __init__(self, image_root, annFile, image_size = 512, augment=True):
+
+        coco = pyCOCO(Path(annFile).as_posix())
+
+        catIds = coco.getCatIds(catNms = ['person'])
+        imgIds = coco.getImgIds(catIds  = catIds)
+        imgs   = coco.loadImgs(imgIds)
+
+        self.coco = coco
+        self.imgs = imgs
+        self.catIds = catIds
+        self.skeleton = coco.loadCats(catIds)[0]['skeleton']
+        self.image_root = Path(image_root)
+
+        self.normalize = transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        )
+        self.scale = transforms.Resize(image_size)
+        self.tensor = transforms.ToTensor()
+
+        self.aug = iaa.SomeOf(0 if augment else 0, [
+            iaa.GaussianBlur(sigma=(0.0, 1.0)),
+            iaa.Dropout(p=(0, 0.1)),
+            iaa.Affine(scale=(0.5, 2.0)),
+            iaa.Affine(rotate=(-60, 60)),
+            iaa.Affine(shear=(-10, 10))
+        ])
+
+    def __getitem__(self, idx):
+
+        img    = self.imgs[idx]
+        img_id = img['id']
+        annIds = self.coco.getAnnIds(imgIds=img_id, catIds=self.catIds)
+        anns   = self.coco.loadAnns(annIds)
+
+        img_path = self.image_root / img['file_name']
+        img = Image.open(img_path).convert('RGB')
+
+        ow, oh = img.size
+        img = self.scale(img)
+        nw, nh = img.size
+        sx, sy = nw/ow, nh/oh
+
+        img = np.asarray(img)
+        aug = self.aug.to_deterministic()
+        img = aug.augment_images([img])[0]
+        
+        ignore_list = []
+        keypoints = []
+        for ann in anns:
+            if ann['num_keypoints'] < 2: continue
+            kpts = []
+            ignore = []
+            ann_keypoints = np.array(ann['keypoints']).reshape(-1, 3)
+            for i, (x, y, v) in enumerate(ann_keypoints):
+                kpts.append(ia.Keypoint(x = int(x * sx), y = int(y * sy)))
+                if v == 0: ignore.append(i)
+            keypoints.append(aug.augment_keypoints([ia.KeypointsOnImage(kpts, shape=img.shape)]))
+            ignore_list.append(ignore)
+
+        anns = []
+        for kpts, ignore in zip(keypoints, ignore_list):
+            ann = []
+            for i, kpt in enumerate(kpts[0].keypoints):
+                if i in ignore:
+                    ann.append([-np.inf, -np.inf])
+                else:
+                    ann.append([kpt.x // 4, kpt.y // 4])
+            anns.append(ann)
+
+        heatmap, jointmap = self.ann2hm(anns, (nh // 4, nw // 4))
+        img = self.tensor(img)
+        #img = self.normalize(img)
+        
+        c, h, w = img.shape
+
+        if h > w:
+            s = int((h - w) / 2)
+            e = int(h - ((h - w) / 2))
+            img = img[:,s:e,:]
+            s = s // 4
+            e = e // 4
+            heatmap = heatmap[:,s:e,:]
+            jointmap = jointmap[:,s:e,:]
+        else:
+            s = int((w - h) / 2)
+            e = int(w - ((w - h) / 2))
+            img = img[:,:,s:e]
+            s = s // 4
+            e = e // 4
+            heatmap = heatmap[:,:,s:e]
+            jointmap = jointmap[:,:,s:e]
+            
+        return img, torch.cat((heatmap, jointmap), dim=0)
+    
+    def ann2hm(self, anns, size):
+        h, w = size
+        # generate gaussian dot
+        sigma = 1e-2 * min(h, w)
+        size  = 4 * sigma + 1
+
+        x = np.arange(0, size, 1, float)
+        y = x[:, np.newaxis]
+        x0 = y0 = size // 2
+        g = ((x - x0) ** 2 + (y - y0) ** 2) / (2 * (sigma ** 2))
+        g = torch.Tensor(np.exp(-g))
+            
+        hm = torch.zeros((17, h, w))
+        jm = torch.zeros((len(self.skeleton) * 2, h, w))
+
+        for ann in anns:
+            assert(len(ann) == 17)
+            for i in range(17):
+                x, y = ann[i]
+                if (np.isinf(x) or np.isinf(y)): continue
+                ul = [int(x - 2 * sigma), int(y - 2 * sigma)]
+                br = [int(x + 2 * sigma), int(y + 2 * sigma + 1)]
+                if (ul[0] >= w or ul[1] >= h): continue
+                if (br[0] < 0 or br[1] < 0): continue
+
+                g_x = max(0, -ul[0]), min(br[0], w) - ul[0]
+                g_y = max(0, -ul[1]), min(br[1], h) - ul[1]
+                img_x = max(0, ul[0]), min(br[0], w)
+                img_y = max(0, ul[1]), min(br[1], h)
+
+                if img_x[1] - img_x[0] <= 0: continue
+                if img_y[1] - img_y[0] <= 0: continue
+                if g_x[1] - g_x[0] <= 0: continue
+                if g_y[1] - g_y[0] <= 0: continue
+
+                target = np.maximum(hm[i, img_y[0]:img_y[1], img_x[0]:img_x[1]],
+                                    g[g_y[0]:g_y[1], g_x[0]:g_x[1]])
+                hm[i, img_y[0]:img_y[1], img_x[0]:img_x[1]] = target
+
+            for i, (p1, p2) in enumerate(self.skeleton):
+                x1, y1 = ann[p1 - 1]
+                x2, y2 = ann[p2 - 1]
+                if (np.isinf(x1) or np.isinf(y1)): continue
+                if (np.isinf(x2) or np.isinf(y2)): continue
+
+                vec_x, vec_y = x2 - x1, y2 - y1
+                norm = np.sqrt(vec_x**2 + vec_y**2)
+                vec_x, vec_y = vec_x / norm, vec_y / norm
+                pts = self.get_line((x1, y1), (x2, y2))
+                for x, y in pts:
+                    ul = [int(x - 2 * sigma), int(y - 2 * sigma)]
+                    br = [int(x + 2 * sigma), int(y + 2 * sigma + 1)]
+                    if (ul[0] >= w or ul[1] >= h): continue
+                    if (br[0] < 0 or br[1] < 0): continue
+
+                    g_x = max(0, -ul[0]), min(br[0], w) - ul[0]
+                    g_y = max(0, -ul[1]), min(br[1], h) - ul[1]
+                    img_x = max(0, ul[0]), min(br[0], w)
+                    img_y = max(0, ul[1]), min(br[1], h)
+
+                    if img_x[1] - img_x[0] <= 0: continue
+                    if img_y[1] - img_y[0] <= 0: continue
+                    if g_x[1] - g_x[0] <= 0: continue
+                    if g_y[1] - g_y[0] <= 0: continue
+
+                    _i = i
+                    val = g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
+                    target = np.maximum(jm[_i, img_y[0]:img_y[1], img_x[0]:img_x[1]], val)
+                    jm[_i, img_y[0]:img_y[1], img_x[0]:img_x[1]] = val
+
+                    _i = len(self.skeleton) + i
+                    val = g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
+                    target = np.maximum(jm[_i, img_y[0]:img_y[1], img_x[0]:img_x[1]], val)
+                    jm[_i, img_y[0]:img_y[1], img_x[0]:img_x[1]] = val
+
+        return hm, jm
+
+    def get_line(self, p1, p2):
+        #bresenham's line algo
+        x0, y0 = p1
+        x1, y1 = p2
+        pts = []
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        x, y = x0, y0
+        sx = -1 if x0 > x1 else 1
+        sy = -1 if y0 > y1 else 1
+        if dx > dy:
+            err = dx // 2.0
+            while x != x1:
+                pts.append((x, y))
+                err -= dy
+                if err < 0:
+                    y += sy
+                    err += dx
+                x += sx
+        else:
+            err = dy // 2.0
+            while y != y1:
+                pts.append((x, y))
+                err -= dx
+                if err < 0:
+                    x += sx
+                    err += dy
+                y += sy
+        pts.append((x, y))
+        return pts      
+
+    def target_channels(self):
+        return 17, len(self.skeleton)
+    
+    def __len__(self):    
+        return len(self.imgs)
