@@ -1,6 +1,7 @@
 import torch
 
 from torch import nn
+from torch.nn import functional as F
 from torchvision.models import vgg
 
 class Openpose(nn.Module):
@@ -19,8 +20,10 @@ class Openpose(nn.Module):
         self.vgg_base = vgg19.features[:27]
         self.vgg_base.add_module('extra_layers', nn.Sequential(
             nn.Conv2d(512, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True)
         ))
 
@@ -30,17 +33,33 @@ class Openpose(nn.Module):
         # Put in first stage since it is different
         self.stages.append(nn.ModuleList([
             nn.Sequential(
-                nn.Conv2d(128, 128, 3, padding=1), nn.ReLU(inplace=True),
-                nn.Conv2d(128, 128, 3, padding=1), nn.ReLU(inplace=True),
-                nn.Conv2d(128, 128, 3, padding=1), nn.ReLU(inplace=True),
-                nn.Conv2d(128, 512, 1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, 3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, 3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, 3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 512, 1, padding=0),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True),
                 nn.Conv2d(512, num_kpt, 1)
             ),
             nn.Sequential(
-                nn.Conv2d(128, 128, 3, padding=1), nn.ReLU(inplace=True),
-                nn.Conv2d(128, 128, 3, padding=1), nn.ReLU(inplace=True),
-                nn.Conv2d(128, 128, 3, padding=1), nn.ReLU(inplace=True),
-                nn.Conv2d(128, 512, 1, padding=0), nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, 3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, 3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, 3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 512, 1, padding=0),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True),
                 nn.Conv2d(512, num_paf, 1)
             )
         ]))
@@ -49,21 +68,45 @@ class Openpose(nn.Module):
         for _ in range(5):
             self.stages.append(nn.ModuleList([
                 nn.Sequential(
-                    nn.Conv2d(inc, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 1, padding=0), nn.ReLU(inplace=True),
+                    nn.Conv2d(inc, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 1, padding=0),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
                     nn.Conv2d(128, num_kpt, 1)
                 ),
                 nn.Sequential(
-                    nn.Conv2d(inc, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 7, padding=3), nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 128, 1, padding=0), nn.ReLU(inplace=True),
+                    nn.Conv2d(inc, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 7, padding=3),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(128, 128, 1, padding=0),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU(inplace=True),
                     nn.Conv2d(128, num_paf, 1)
                 )
             ]))
@@ -78,8 +121,8 @@ class Openpose(nn.Module):
         # openpose stages
         x = features
         for hm, jm in self.stages:
-            hm_pred = hm(x)
-            jm_pred = jm(x)
+            hm_pred = F.sigmoid(hm(x))
+            jm_pred = F.tanh(jm(x))
             preds.append((hm_pred, jm_pred))
             x = torch.cat((hm_pred, jm_pred, features), dim=1)
 
@@ -87,10 +130,28 @@ class Openpose(nn.Module):
 
     @staticmethod
     def calc_loss(preds, hm_gt, jm_gt, mask):
-        loss = 0
+        hm_loss = 0
+        jm_loss = 0
+
+        hm_mask = mask.unsqueeze(1).repeat(1, hm_gt.shape[1], 1, 1)
+        jm_mask = mask.unsqueeze(1).repeat(1, jm_gt.shape[1], 1, 1)
         for pred in preds:
             hm_pred, jm_pred = pred
-            hm_loss = ((hm_pred.cpu() - hm_gt) ** 2)[:, :, mask > 0].sum()
-            jm_loss = ((jm_pred.cpu() - jm_gt) ** 2)[:, :, mask > 0].sum()
-            loss += hm_loss + jm_loss
-        return loss
+
+            b, c, h, w = hm_pred.shape
+
+            if hm_pred.shape != hm_gt.shape:
+                hm_gt = F.upsample(hm_gt, (h, w), mode='bilinear', align_corners=True)
+                jm_gt = F.upsample(jm_gt, (h, w), mode='bilinear', align_corners=True)
+                hm_mask = F.upsample(hm_mask, (h, w), mode='bilinear', align_corners=True)
+                jm_mask = F.upsample(jm_mask, (h, w), mode='bilinear', align_corners=True)
+
+            hm_target = hm_gt.clone()
+            jm_target = jm_gt.clone()
+            hm_target[hm_mask > 0] = hm_pred[hm_mask > 0]
+            jm_target[jm_mask > 0] = jm_pred[jm_mask > 0]
+
+            hm_loss += ((hm_pred - hm_gt) ** 2).sum()
+            jm_loss += ((jm_pred - jm_gt) ** 2).sum()
+
+        return hm_loss, jm_loss

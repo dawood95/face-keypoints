@@ -13,7 +13,7 @@ class COCO(data.Dataset):
     FLIP_SRC  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
     FLIP_TGT  = [2,1,4,3,6,5,8,7,10,9,12,11,14,13,16,15]
 
-    def __init__(self, root, annFile, image_size=512, augment=True, sigma=7):
+    def __init__(self, root, annFile, image_size=512, augment=True, sigma=11.):
         # inititalize pyCOCO
         self.coco     = pyCOCO(Path(annFile).as_posix())
         self.catIds   = self.coco.getCatIds(catNms = ['person'])
@@ -88,7 +88,7 @@ class COCO(data.Dataset):
 
         # hack for now
         loss_mask = T.to_pil_image(loss_mask)
-        loss_mask = T.resize(loss_mask, self.image_size // 8)
+        loss_mask = T.resize(loss_mask, self.image_size)
         loss_mask = T.to_tensor(loss_mask)[0]
 
         if len(img.shape) == 2:
@@ -96,7 +96,7 @@ class COCO(data.Dataset):
 
         # Generate heatmap
         _, h, w = img.shape
-        h, w   = h//8, w//8
+        h, w   = h, w
         hm   = np.zeros((17 + 1, h, w), dtype=np.float)
         jm_x = np.zeros((19, h, w), dtype=np.float)
         jm_y = np.zeros((19, h, w), dtype=np.float)
@@ -129,9 +129,6 @@ class COCO(data.Dataset):
             keypoints[:, 1] -= y1
             keypoints = np.concatenate([keypoints, vis[:, np.newaxis]], axis=1)
 
-            keypoints[:, 0] /= 8
-            keypoints[:, 1] /= 8
-            
             # kpt_arrays for hm
             kpt_arrays = []
             for x, y, v in keypoints:
@@ -161,6 +158,7 @@ class COCO(data.Dataset):
                 vec_x, vec_y = pt2_x - pt1_x, pt2_y - pt1_y
 
                 norm = np.sqrt((vec_x ** 2) + (vec_y ** 2))
+                if norm == 0: continue
                 vec_x, vec_y = vec_x / norm, vec_y / norm
 
                 vec_arr = np.zeros_like(base)
@@ -172,7 +170,7 @@ class COCO(data.Dataset):
                 ort_prod = dot_prod / (vec_x ** 2 + vec_y ** 2)
                 ort_prod = ((diff[0] - (ort_prod * vec_y)) * diff[0]) + ((diff[1] - (ort_prod * vec_x)) * diff[1])
 
-                ort_prod = abs(ort_prod) < (self.sigma * 2)
+                ort_prod = abs(ort_prod) < (self.sigma ** 2)
                 dot_prod = (dot_prod <= norm) * (dot_prod > 0)
                 mask     = ort_prod * dot_prod
 
