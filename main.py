@@ -49,12 +49,9 @@ def main():
     logger.writer.add_text('model_def', '''%s'''%(model_str))
     logger.cache_model()
 
-    if args.cuda:
-        model = torch.nn.DataParallel(model)
-        model = model.cuda()
-
-    if args.pretrained:
-        model.load_state_dict(torch.load(args.pretrained))
+    if args.cuda: model = model.cuda()
+    if args.pretrained: model.load_state_dict(torch.load(args.pretrained))
+    if args.cuda: model = torch.nn.DataParallel(model)
 
     # Trainer
     trainer = Trainer(model, train_loader, val_loader,

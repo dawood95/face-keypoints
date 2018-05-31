@@ -13,7 +13,7 @@ class COCO(data.Dataset):
     FLIP_SRC  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
     FLIP_TGT  = [2,1,4,3,6,5,8,7,10,9,12,11,14,13,16,15]
 
-    def __init__(self, root, annFile, image_size=512, augment=True, sigma=11.):
+    def __init__(self, root, annFile, image_size=512, augment=True, sigma=7.):
         # inititalize pyCOCO
         self.coco     = pyCOCO(Path(annFile).as_posix())
         self.catIds   = self.coco.getCatIds(catNms = ['person'])
@@ -185,7 +185,7 @@ class COCO(data.Dataset):
         gt_hm = torch.Tensor(hm)
         gt_jm = torch.cat((torch.Tensor(jm_x), torch.Tensor(jm_y)), dim=0)
 
-        return img, gt_hm, gt_jm, loss_mask
+        return img, gt_hm, gt_jm, loss_mask, img_id
 
     def __len__(self):
         return len(self.imgs)

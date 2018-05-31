@@ -151,7 +151,7 @@ class Openpose(nn.Module):
             hm_target[hm_mask > 0] = hm_pred[hm_mask > 0]
             jm_target[jm_mask > 0] = jm_pred[jm_mask > 0]
 
-            hm_loss += ((hm_pred - hm_gt) ** 2).sum()
-            jm_loss += ((jm_pred - jm_gt) ** 2).sum()
+            hm_loss += ((hm_pred - hm_gt) ** 2).sum() / hm_pred.shape[0]
+            jm_loss += ((jm_pred - jm_gt) ** 2).sum() / jm_pred.shape[0]
 
         return hm_loss, jm_loss
