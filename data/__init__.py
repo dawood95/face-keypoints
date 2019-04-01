@@ -1,16 +1,12 @@
 from pathlib import Path
 from torch.utils.data import DataLoader
-from .coco import COCO
+from .ls3d import LS3D
 
-from pycocotools.coco import COCO as eCOCO
+def get_LS3D(train_root, val_root, train_image_type, val_image_type,
+             batch_size, num_workers, cuda):
 
-def get_COCO(data_root, batch_size, num_workers, cuda):
-
-    train_annFile = Path(data_root) / 'annotations' / 'person_keypoints_train2017.json'
-    val_annFile = Path(data_root) / 'annotations' / 'person_keypoints_val2017.json'
-
-    train_dataset = COCO(Path(data_root) / 'train2017', train_annFile)
-    val_dataset = COCO(Path(data_root) / 'val2017', val_annFile, augment=False)
+    train_dataset = LS3D(train_root, image_type=train_image_type)
+    val_dataset   = LS3D(val_root  , image_type=val_image_type, augment=False)
 
     train_loader = DataLoader(
         dataset     = train_dataset,
@@ -28,11 +24,7 @@ def get_COCO(data_root, batch_size, num_workers, cuda):
         pin_memory  = cuda
     )
 
-    cocoGt = eCOCO(val_annFile.as_posix())
-    catIds = cocoGt.getCatIds(catNms=['person'])
-    imgIds = cocoGt.getImgIds(catIds=catIds)
-
-    return train_loader, val_loader, (cocoGt, imgIds)
+    return train_loader, val_loader
 
 
 __all__ = ["get_COCO"]
