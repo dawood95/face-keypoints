@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch import nn
+from tqdm import tqdm
 
 class Trainer:
 
@@ -61,7 +62,7 @@ class Trainer:
         num_steps  = 0
         total_loss = 0
 
-        for img, hm in self.train_loader:
+        for img, hm in tqdm(self.train_loader):
             if self.cuda:
                 img = img.cuda(non_blocking=True)
                 hm  = hm.cuda(non_blocking=True)
@@ -75,12 +76,12 @@ class Trainer:
 
             if self.train_step % 10 == 0:
                 total = step_loss.item()
-                print("Train %d / %d :"%(num_steps, len(self.train_loader)), end='')
+                #print("Train %d / %d :"%(num_steps, len(self.train_loader)), end='')
                 for k in _loss:
                     self.logger.comet.log_metric(k, _loss[k].item(), self.train_step)
-                    print(" %s=[%.5f]"%(k, _loss[k].item()), end='')
+                    #print(" %s=[%.5f]"%(k, _loss[k].item()), end='')
                 self.logger.comet.log_metric("total", total, self.train_step)
-                print(" total=[%.5f]"%(total))
+                #print(" total=[%.5f]"%(total))
 
             self.optim.zero_grad()
             step_loss.backward()
@@ -89,7 +90,7 @@ class Trainer:
             total_loss += step_loss.item()
             self.train_step += 1
             num_steps  += 1
-            
+
         total_loss /= num_steps
 
         print("Train : Total Loss=[%.5f]"%(total_loss))
@@ -104,7 +105,7 @@ class Trainer:
         num_steps  = 0
         total_loss = 0
 
-        for img, hm in self.val_loader:
+        for img, hm in tqdm(self.val_loader):
             if self.cuda:
                 img = img.cuda(non_blocking=True)
                 hm  = hm.cuda(non_blocking=True)
@@ -118,13 +119,12 @@ class Trainer:
 
             if self.val_step % 10 == 0:
                 total = loss.item()
-                print("Val %d /%d :"%(num_steps,len(self.val_loader)), end='')
-
+                #print("Val %d /%d :"%(num_steps,len(self.val_loader)), end='')
                 for k in _loss:
                     self.logger.comet.log_metric(k, _loss[k].item(), self.val_step)
-                    print(" %s=[%.5f]"%(k, _loss[k].item()), end='')
+                    #print(" %s=[%.5f]"%(k, _loss[k].item()), end='')
                 self.logger.comet.log_metric("total", total, self.val_step)
-                print(" total=[%.5f]"%(total))
+                #print(" total=[%.5f]"%(total))
 
             total_loss += loss.item()
             self.val_step += 1

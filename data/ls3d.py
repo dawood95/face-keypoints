@@ -42,7 +42,12 @@ class LS3D(Dataset):
         self.resize  = resize
         self.sigma   = sigma
         self.augment = augment
-
+        
+        size = 4 * sigma + 1
+        x = np.arange(0, size, 1, float)
+        y = x[:, np.newaxis]
+        x0 = y0 = size // 2
+        self.g = torch.Tensor(np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * (sigma ** 2))))
 
     def __getitem__(self, idx):
         imgs = []
@@ -69,14 +74,7 @@ class LS3D(Dataset):
             # Create heatmap
             h, w, _ = img.shape
             hm = np.zeros((len(ann), h, w), dtype=np.float32)
-
             sigma = self.sigma
-            size = 4 * sigma + 1
-            x = np.arange(0, size, 1, float)
-            y = x[:, np.newaxis]
-            x0 = y0 = size // 2
-            g = torch.Tensor(np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * (sigma ** 2))))
-        
             for i in range(len(ann)):
                 x, y = ann[i].x, ann[i].y
 
@@ -93,7 +91,7 @@ class LS3D(Dataset):
                 if (img_x[1] - img_x[0] <= 0 or img_y[1] - img_y[0] <= 0 or
                     g_x[1] - g_x[0] <= 0 or g_y[1] - g_y[0] <= 0):
                     continue
-                hm[i,img_y[0]:img_y[1], img_x[0]:img_x[1]] = g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
+                hm[i, img_y[0]:img_y[1], img_x[0]:img_x[1]] = self.g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
         
             imgs.append(img)
             hmps.append(hm)
