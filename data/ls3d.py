@@ -13,7 +13,7 @@ from torchvision.transforms import functional as T
 
 class LS3D(Dataset):
 
-    def __init__(self, root, image_size=256, num_inst=3, sigma=7.):
+    def __init__(self, root, image_size=256, num_inst=3, sigma=7., augment=False):
 
         root = Path(root)
 
@@ -38,12 +38,14 @@ class LS3D(Dataset):
             iaa.Resize(image_size),
         ])
 
-        self.data  = data
-        self.sigma = sigma
-        self.aug   = aug
+        self.data    = data
+        self.aug     = aug
+        self.sigma   = sigma
+        self.augment = augment
+
 
     def __getitem__(self, idx):
-        
+
         imgs = []
         hmps = []
 
@@ -56,9 +58,10 @@ class LS3D(Dataset):
             ann = ia.KeypointsOnImage(ann, img.shape)
 
             # Augment image and keypoints
-            aug = self.aug.to_deterministic()
-            img = aug.augment_image(img)
-            ann = aug.augment_keypoints([ann])[0].keypoints
+            if self.augment:
+                aug = self.aug.to_deterministic()
+                img = aug.augment_image(img)
+                ann = aug.augment_keypoints([ann])[0].keypoints
 
             # Create heatmap
             h, w, _ = img.shape

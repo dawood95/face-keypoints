@@ -1,69 +1,94 @@
-import time
+import git
+import os
 import argparse
+import comet_ml
 import torch
-import numpy as np
 
-from tqdm import tqdm
-from pathlib import Path
-from torch import nn
-from torch import optim
+from torch.optim import lr_scheduler, Adam
+from data   import load_davis as load_data
+from models import FPN as Model
+from utils  import Trainer, Logger, LR_Finder
 
-from models.hrfpn34b2 import HRFPN34B2 as Model
+parser = argparse.ArgumentParser()
+parser.add_argument('--train-root'  , type=str, required=True)
+parser.add_argument('--val-root'    , type=str, required=True)
+parser.add_argument('--log-root'    , type=str, default='~/Experiments/')
+parser.add_argument('--image-size'  , type=int, default=512)
+parser.add_argument('--pretrained'  , type=str, default='')
+parser.add_argument('--batch-size'  , type=int, default=32)
+parser.add_argument('--epoch'       , type=int, default=300)
+parser.add_argument('--num-workers' , type=int, default=8)
+parser.add_argument('--lr'          , type=float, default=1e-3)
+parser.add_argument('--weight-decay', type=float, default=5e-4)
+parser.add_argument('--lr-patience' , type=int, default=150)
+parser.add_argument('--cuda'        , action='store_true', default=False)
+parser.add_argument('--find-lr'     , action='store_true', default=False)
+parser.add_argument('--track'       , action='store_true', default=False)
+parser.add_argument('--comment'     , type=str, default='')
+args = parser.parse_args()
 
-from data import get_LS3D as getData
-from trainer import Trainer
-from utils.logger import Logger
+torch.manual_seed(0)
+if args.cuda:
+    torch.cuda.manual_seed(0)
+    torch.backends.cudnn.benchmark = args.track
 
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--train-root', type=str, required=True)
-    parser.add_argument('--train-type', type=str, default='jpg')
-    parser.add_argument('--val-root', type=str, required=True)
-    parser.add_argument('--val-type', type=str, default='jpg')
-    parser.add_argument('--pretrained', type=str, default='')
-    parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--epoch', type=int, default=50)
-    parser.add_argument('--num-workers', type=int, default=4)
-    parser.add_argument('--cuda', action='store_true', default=False)
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--log-root', type=str, default='~/Experiments/')
-    parser.add_argument('--comments', type=str, default='')
-    return parser.parse_args()
+# Setup Dataloader
+data = load_data(
+    args.train_root, args.val_root,
+    args.image_size, args.batch_size,
+    args.num_workers, args.cuda
+)
 
-args = get_args()
+# Setup Model
+model = Model()
 
+# Setup Optimizer
+model_optimizer = Adam(
+    model.parameters(),
+    lr=args.lr,
+    #final_lr=0.1,
+    weight_decay=args.weight_decay
+)
 
-def main():
+if args.pretrained:
+    data = torch.load(args.pretrained, map_location='cpu')
+    model.load_state_dict(data['state_dict'])
+    model_optimizer.load_state_dict(data['optim'])
 
-    # Logging
-    exp_name  = 'face_keypoints_'+Model.__qualname__
-    logger = Logger(args.log_root, exp_name, args.comments)
-    logger.writer.add_text('args', str(args))
+if args.cuda:
+    model = model.cuda()
+    model = torch.nn.DataParallel(model)
 
-    # Data
-    data = getData(args.train_root, args.val_root,
-                   args.train_type, args.val_type,
-                   args.batch_size, args.num_workers, args.cuda)
-    train_loader, val_loader = data
+# Setup Logger
+dirname   = os.path.dirname(os.path.realpath(__file__))
+repo      = git.repo.Repo(dirname)
 
-    # Model
-    model = Model()
-    optimizer = optim.Adam(params = model.parameters(), lr = args.lr, amsgrad=True)
+if args.find_lr:
+    lr_finder = LR_Finder(
+        data, model, model_optimizer, args.cuda, name='model'
+    )
+    lr_finder.run()
+    exit(0)
 
-    model_str = str(model).replace(' ', '&nbsp;').replace('\n', '<br>')
-    logger.writer.add_text('model_def', '''%s'''%(model_str))
-    logger.cache_model()
+if args.track and repo.is_dirty():
+    print("Commit before running trackable experiments")
+    exit(-1)
 
-    if args.cuda: model = model.cuda()
-    if args.pretrained: model.load_state_dict(torch.load(args.pretrained))
-    if args.cuda: model = torch.nn.DataParallel(model)
+commit_id = repo.commit().hexsha
+logger    = Logger(
+    args.log_root, 'video-compression',
+    commit_id, comment=args.comment,
+    disabled=(not args.track)
+)
 
-    # Trainer
-    trainer = Trainer(model, train_loader, val_loader,
-                      optimizer, logger, args.cuda)
-    trainer.run(args.epoch)
+scheduler = lr_scheduler.StepLR(
+    model_optimizer, args.lr_patience, gamma=0.5
+)
 
-if __name__ == "__main__": main()
+# Setup and start Trainer
+trainer = Trainer(
+    data, model, scheduler, model_optimizer,
+    logger, args.cuda
+)
 
-
-
+trainer.run(args.epoch)
