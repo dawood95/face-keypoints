@@ -67,7 +67,7 @@ class Trainer:
                 hm  = hm.cuda(non_blocking=True)
 
             preds = self.model(img)
-            loss, factor = calc_loss(preds, hm)
+            _loss, factor = calc_loss(preds, hm)
 
             step_loss = 0
             for k in _loss:
@@ -89,7 +89,7 @@ class Trainer:
             total_loss += step_loss.item()
             self.train_step += 1
             num_steps  += 1
-
+            
         total_loss /= num_steps
 
         print("Train : Total Loss=[%.5f]"%(total_loss))

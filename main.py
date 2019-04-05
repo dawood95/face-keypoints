@@ -40,7 +40,7 @@ data = load_data(
 )
 
 # Setup Model
-model = Model()
+model = Model(68)
 
 # Setup Optimizer
 model_optimizer = Adam(
@@ -76,7 +76,7 @@ if args.track and repo.is_dirty():
 
 commit_id = repo.commit().hexsha
 logger    = Logger(
-    args.log_root, 'video-compression',
+    args.log_root, 'face-keypoint',
     commit_id, comment=args.comment,
     disabled=(not args.track)
 )

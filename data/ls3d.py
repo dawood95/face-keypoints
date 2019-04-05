@@ -14,7 +14,6 @@ from torchvision.transforms import functional as T
 class LS3D(Dataset):
 
     def __init__(self, root, image_size=256, num_inst=3, sigma=7., augment=False):
-
         root = Path(root)
 
         data = []
@@ -35,17 +34,17 @@ class LS3D(Dataset):
             iaa.Fliplr(0.5),
             iaa.Flipud(0.5),
             iaa.Affine(scale=(0.5, 1.5), rotate=(-60, 60)),
-            iaa.Resize(image_size),
         ])
-
+        resize = iaa.Resize(image_size)
+        
         self.data    = data
         self.aug     = aug
+        self.resize  = resize
         self.sigma   = sigma
         self.augment = augment
 
 
     def __getitem__(self, idx):
-
         imgs = []
         hmps = []
 
@@ -61,33 +60,46 @@ class LS3D(Dataset):
             if self.augment:
                 aug = self.aug.to_deterministic()
                 img = aug.augment_image(img)
-                ann = aug.augment_keypoints([ann])[0].keypoints
+                ann = aug.augment_keypoints([ann])[0]
+                
+            img = self.resize.augment_image(img)
+            ann = self.resize.augment_keypoints([ann])[0]
+            ann = ann.keypoints
 
             # Create heatmap
             h, w, _ = img.shape
-            hm = np.zeros((len(ann), h, w), dtype=np.float)
-            base = np.indices((h, w), dtype=np.float)
-            kpt_base = np.tile(base, (len(ann), 1, 1))
+            hm = np.zeros((len(ann), h, w), dtype=np.float32)
 
-            kpt_arrays = []
+            sigma = self.sigma
+            size = 4 * sigma + 1
+            x = np.arange(0, size, 1, float)
+            y = x[:, np.newaxis]
+            x0 = y0 = size // 2
+            g = torch.Tensor(np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * (sigma ** 2))))
+        
             for i in range(len(ann)):
-                kpt_arr = np.zeros_like(base)
-                # TODO: Check if this is flipped
-                kpt_arr[0, :] = kpt[i].y
-                kpt_arr[1, :] = kpt[i].x
-                kpt_arrays.append(kpt_arr)
-            kpt_arrays = np.concatenate(kpt_arrays, axis=0)
-            kpt_arrays = (kpt_arrays - kpt_base) ** 2
+                x, y = ann[i].x, ann[i].y
 
-            for i in range(len(ann)):
-                sig = 2 * (self.sigma ** 2)
-                dst = np.exp(-np.sum(kpt_arrays[2*i:2*(i+1)], axis=0) / sig)
-                hm[i] = np.maximum(hm[i], dst)
+                ul = [int(x - 2 * sigma), int(y - 2 * sigma)]
+                br = [int(x + 2 * sigma + 1), int(y + 2 * sigma + 1)]
+                if (ul[0] >= w or ul[1] >= h or
+                    br[0] < 0 or br[1] < 0):
+                    continue
 
+                g_x = max(0, -ul[0]), min(br[0], w) - ul[0]
+                g_y = max(0, -ul[1]), min(br[1], h) - ul[1]
+                img_x = max(0, ul[0]), min(br[0], w)
+                img_y = max(0, ul[1]), min(br[1], h)
+                if (img_x[1] - img_x[0] <= 0 or img_y[1] - img_y[0] <= 0 or
+                    g_x[1] - g_x[0] <= 0 or g_y[1] - g_y[0] <= 0):
+                    continue
+                hm[i,img_y[0]:img_y[1], img_x[0]:img_x[1]] = g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
+        
             imgs.append(img)
             hmps.append(hm)
 
-        imgs = np.concatenate(imgs, 2)
+        imgs = np.concatenate(imgs, 1)
+        imgs = imgs.astype(np.float32) / 255.
         hmps = np.concatenate(hmps, 2)
 
         imgs = torch.from_numpy(imgs)
