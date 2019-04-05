@@ -75,7 +75,7 @@ class Trainer:
 
             if self.train_step % 10 == 0:
                 total = step_loss.item()
-                print("Train %d :"%num_steps, end='')
+                print("Train %d / %d :"%(num_steps, len(self.train_loader)), end='')
                 for k in _loss:
                     self.logger.comet.log_metric(k, _loss[k].item(), self.train_step)
                     print(" %s=[%.5f]"%(k, _loss[k].item()), end='')
@@ -118,7 +118,7 @@ class Trainer:
 
             if self.val_step % 10 == 0:
                 total = loss.item()
-                print("Val %d :"%num_steps, end='')
+                print("Val %d /%d :"%(num_steps,len(self.val_loader)), end='')
 
                 for k in _loss:
                     self.logger.comet.log_metric(k, _loss[k].item(), self.val_step)
