@@ -11,4 +11,4 @@ python3 -B -u main.py \
 	--epoch 100 \
 	--cuda \
 	--batch-size 32 \
-#	--track \
+	--track \
