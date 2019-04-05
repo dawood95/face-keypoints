@@ -6,7 +6,7 @@ import torch
 
 from torch.optim import lr_scheduler, Adam
 from data   import load_LS3D as load_data
-from models import FPN as Model
+from models import HRFPN34 as Model
 from utils  import Trainer, Logger, LR_Finder
 
 parser = argparse.ArgumentParser()

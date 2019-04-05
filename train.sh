@@ -6,9 +6,9 @@ python3 -B -u main.py \
 	--log-root ~/Experiments/ \
 	--image-size 256 \
 	--num-workers 4 \
-	--lr 1e-3 \
+	--lr 1e-4 \
 	--lr-patience 50 \
 	--epoch 100 \
 	--cuda \
 	--batch-size 32 \
-	--track \
+#	--track \

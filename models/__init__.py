@@ -1,1 +1,1 @@
-from .fpn import FPN
+from .hrfpn34 import HRFPN34
