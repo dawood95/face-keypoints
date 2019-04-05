@@ -5,7 +5,7 @@ import comet_ml
 import torch
 
 from torch.optim import lr_scheduler, Adam
-from data   import load_davis as load_data
+from data   import load_LS3D as load_data
 from models import FPN as Model
 from utils  import Trainer, Logger, LR_Finder
 
