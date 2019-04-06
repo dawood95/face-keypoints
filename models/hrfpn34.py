@@ -6,7 +6,7 @@ from torchvision.models import resnet
 
 class HRFPN34(nn.Module):
 
-    def __init__(self, out_channels, smart_add=True, sigmoid=True):
+    def __init__(self, out_channels, smart_add=True):
         
         super().__init__()
 
@@ -40,7 +40,6 @@ class HRFPN34(nn.Module):
 
         self.decoder  = nn.ModuleList([])
         self.lateral  = nn.ModuleList([])
-        self.upsample = nn.ModuleList([])
 
         for in_channels in reversed(base_channels[:-1]):
 
@@ -56,20 +55,14 @@ class HRFPN34(nn.Module):
                 nn.ReLU(inplace = True),
             ))
 
-            self.upsample.append(nn.Sequential(
-                nn.ConvTranspose2d(256, 256, 3, stride=2, padding=1, output_padding=1),
-                nn.BatchNorm2d(256),
-                nn.ReLU(inplace=True),
-            ))
-
 
         classifier = [
             nn.Conv2d(256, 256, 3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace = True),
-            nn.Conv2d(256, out_channels, 1)
+            nn.Conv2d(256, out_channels, 1),
+            nn.Sigmoid()
         ]
-        if sigmoid: classifier.append(nn.Sigmoid())
         self.mse_loss = nn.MSELoss(reduction='mean')
         self.classifier = nn.Sequential(*classifier)
         self.smart_add = smart_add
@@ -93,9 +86,8 @@ class HRFPN34(nn.Module):
             residuals.append(x)
         x = self.decoder_start(x)
 
-        down_path = zip(self.lateral, self.upsample, self.decoder)
-        for i, (l, u, d) in enumerate(down_path):
-            x = u(x)            
+        down_path = zip(self.lateral, self.decoder)
+        for i, (l, d) in enumerate(down_path):
             x = self._add(x, l(residuals[-(i + 2)]))
             x = d(x)
             if self.training:

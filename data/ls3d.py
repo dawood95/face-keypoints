@@ -13,7 +13,7 @@ from torchvision.transforms import functional as T
 
 class LS3D(Dataset):
 
-    def __init__(self, root, image_size=256, num_inst=3, sigma=7., augment=False):
+    def __init__(self, root, image_size=256, num_inst=1, sigma=5., augment=False):
         root = Path(root)
 
         data = []
@@ -32,8 +32,8 @@ class LS3D(Dataset):
 
         aug = iaa.Sequential([
             iaa.Fliplr(0.5),
-            iaa.Flipud(0.5),
-            iaa.Affine(scale=(0.5, 1.5), rotate=(-60, 60)),
+            #iaa.Flipud(0.5),
+            iaa.Affine(scale=(0.5, 1.5), rotate=(-30, 30)),
         ])
         resize = iaa.Resize(image_size)
         
