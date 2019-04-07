@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 python3 -B -u main.py \
-	--train-root ~/Datasets/LS3D-W/300VW-3D/Trainset \
-        --val-root ~/Datasets/LS3D-W/300VW-3D/CatA \
+	--train-root ~/Datasets/LS3D-W/Train \
+        --val-root ~/Datasets/LS3D-W/300W-Testset-3D \
 	--log-root ~/Experiments/ \
 	--image-size 320 \
 	--num-workers 4 \
