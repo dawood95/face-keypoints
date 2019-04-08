@@ -62,13 +62,14 @@ class Trainer:
         num_steps  = 0
         total_loss = 0
 
-        for img, hm in tqdm(self.train_loader):
+        for img, hm, mask in tqdm(self.train_loader):
             if self.cuda:
                 img = img.cuda(non_blocking=True)
                 hm  = hm.cuda(non_blocking=True)
+                mask = mask.cuda(non_blocking=True)
 
             preds = self.model(img)
-            _loss, factor = calc_loss(preds, hm)
+            _loss, factor = calc_loss(preds, hm, mask)
 
             step_loss = 0
             for k in _loss:
@@ -105,13 +106,14 @@ class Trainer:
         num_steps  = 0
         total_loss = 0
 
-        for img, hm in tqdm(self.val_loader):
+        for img, hm, mask in tqdm(self.val_loader):
             if self.cuda:
                 img = img.cuda(non_blocking=True)
                 hm  = hm.cuda(non_blocking=True)
+                mask = mask.cuda(non_blocking=True)
 
             preds = self.model(img)
-            _loss, factor = calc_loss(preds, hm)
+            _loss, factor = calc_loss(preds, hm, mask)
 
             loss  = 0
             for k in _loss:

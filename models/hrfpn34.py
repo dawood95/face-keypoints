@@ -7,7 +7,7 @@ from torchvision.models import resnet
 class HRFPN34(nn.Module):
 
     def __init__(self, out_channels, smart_add=True):
-        
+
         super().__init__()
 
         base = resnet.resnet34(pretrained=True)
@@ -66,10 +66,10 @@ class HRFPN34(nn.Module):
         self.mse_loss = nn.MSELoss(reduction='mean')
         self.classifier = nn.Sequential(*classifier)
         self.smart_add = smart_add
-        
+
     def _add(self, x, y):
         if not self.smart_add: return x + y
-        
+
         if (x.numel() > y.numel()):
             x, y = y, x
         _, _, h, w = y.size()
@@ -95,15 +95,18 @@ class HRFPN34(nn.Module):
 
         if not self.training:
             result.append(self.classifier(x))
-            
+
         return result
 
-    def calc_loss(self, preds, hm):
+    def calc_loss(self, preds, hm, mask):
         factor = {}
         loss = {}
+        hm_mask = mask.repeat(1, hm.shape[1], 1, 1)
         for i, pred in enumerate(preds):
             _, _, h, w = pred.shape
-            hm_gt = F.interpolate(hm, (h, w), mode="bilinear", align_corners=True)
+            hm_gt    = F.interpolate(hm, (h, w), mode="bilinear", align_corners=True)
+            mask_gt  = F.interpolate(hm_mask, (h, w))
+            pred[mask_gt == 0] = hm_gt[mask_gt == 0]
             loss['mse_%d'%i] = self.mse_loss(pred, hm_gt)
             factor['mse_%d'%i] = 1
         return loss, factor

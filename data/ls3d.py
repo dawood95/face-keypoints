@@ -33,16 +33,16 @@ class LS3D(Dataset):
         aug = iaa.Sequential([
             iaa.Fliplr(0.5),
             #iaa.Flipud(0.5),
-            iaa.Affine(scale=(0.5, 1.5), rotate=(-30, 30)),
+            iaa.Affine(scale=(0.2, 2), rotate=(-60, 60)),
         ])
         resize = iaa.Resize(image_size)
-        
+
         self.data    = data
         self.aug     = aug
         self.resize  = resize
         self.sigma   = sigma
         self.augment = augment
-        
+
         size = 4 * sigma + 1
         x = np.arange(0, size, 1, float)
         y = x[:, np.newaxis]
@@ -52,6 +52,7 @@ class LS3D(Dataset):
     def __getitem__(self, idx):
         imgs = []
         hmps = []
+        masks = []
 
         data = self.data[idx]
         for img, ann in data:
@@ -61,14 +62,21 @@ class LS3D(Dataset):
             ann = [ia.Keypoint(x, y) for (x, y) in ann]
             ann = ia.KeypointsOnImage(ann, img.shape)
 
+            h, w, _ = img.shape
+            mask = np.zeros((h, w))
+            mask[:] = 1
+
             # Augment image and keypoints
             if self.augment:
+                self.aug.reseed(deterministic_too=True)
                 aug = self.aug.to_deterministic()
                 img = aug.augment_image(img)
+                mask = aug.augment_image(mask)
                 ann = aug.augment_keypoints([ann])[0]
-                
+
             img = self.resize.augment_image(img)
             ann = self.resize.augment_keypoints([ann])[0]
+            mask = self.resize.augment_image(mask)
             ann = ann.keypoints
 
             # Create heatmap
@@ -92,21 +100,24 @@ class LS3D(Dataset):
                     g_x[1] - g_x[0] <= 0 or g_y[1] - g_y[0] <= 0):
                     continue
                 hm[i, img_y[0]:img_y[1], img_x[0]:img_x[1]] = self.g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
-        
+
             imgs.append(img)
             hmps.append(hm)
+            masks.append(mask)
 
         imgs = np.concatenate(imgs, 1)
+        masks = np.concatenate(masks, 1)
         imgs = imgs.astype(np.float32) / 255.
         hmps = np.concatenate(hmps, 2)
 
         imgs = torch.from_numpy(imgs)
+        masks = torch.from_numpy(masks).unsqueeze(0).float()
         hmps = torch.from_numpy(hmps)
 
         imgs = imgs.permute(2, 0, 1).contiguous()
         imgs = self.normalize(imgs)
 
-        return imgs, hmps
+        return imgs, hmps, masks
 
     def __len__(self):
         return len(self.data)
