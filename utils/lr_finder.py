@@ -25,7 +25,8 @@ class LR_Finder:
         self.model   = model
         self.module  = model.module if cuda else model
         self.optim   = optim
-        self.sched   = ExponentialLR(optim, 1, 100)
+        self.length  = 100
+        self.sched   = ExponentialLR(optim, 1e-1, self.length)
         self.cuda    = cuda
         self.name    = name
 
@@ -38,15 +39,17 @@ class LR_Finder:
         self.model.train()
         calc_loss = self.module.calc_loss
 
-        total_loss = {}
         num_steps = 0
-        for img, hm in tqdm(self.loader):
+        for img, hm, mask in tqdm(self.loader):
+            total_loss = {}
+
             if self.cuda:
                 img = img.cuda(non_blocking=True)
                 hm  = hm.cuda(non_blocking=True)
+                mask = mask.cuda(non_blocking=True)
 
             preds = self.model(img)
-            loss, factor = calc_loss(preds, hm)
+            loss, factor = calc_loss(preds, hm, mask)
 
             self.sched.step()
             lr.append(self.sched.get_lr()[0])
@@ -70,6 +73,8 @@ class LR_Finder:
             losses['total'].append(total_loss)
 
             num_steps +=1
+            if num_steps == self.length:
+                break
 
         for k in losses:
             plt.figure()

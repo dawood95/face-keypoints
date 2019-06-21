@@ -2,7 +2,7 @@
 
 python3 -B -u main.py \
 	--train-root ~/Datasets/LS3D-W/Train \
-        --val-root ~/Datasets/LS3D-W/300W-Testset-3D \
+  --val-root ~/Datasets/LS3D-W/300W-Testset-3D \
 	--log-root ~/Experiments/ \
 	--image-size 320 \
 	--num-workers 4 \
@@ -11,5 +11,5 @@ python3 -B -u main.py \
 	--lr-patience 50 \
 	--epoch 100 \
 	--cuda \
-	--batch-size 64 \
+	--batch-size 32 \
 	--track \

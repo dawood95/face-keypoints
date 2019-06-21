@@ -35,7 +35,7 @@ class Trainer:
             with self.logger.comet.validate():
                 val_loss   = self.validate()
 
-            self.logger.comet.log_multiple_metrics({
+            self.logger.comet.log_metrics({
                 'train': train_loss,
                 'val'  : val_loss
             }, prefix='total_loss', step=(self.epoch+1))

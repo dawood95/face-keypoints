@@ -13,7 +13,7 @@ from torchvision.transforms import functional as T
 
 class LS3D(Dataset):
 
-    def __init__(self, root, image_size=256, num_inst=1, sigma=5., augment=False):
+    def __init__(self, root, image_size=256, num_inst=2, sigma=2., augment=False):
         root = Path(root)
 
         data = []
@@ -31,7 +31,7 @@ class LS3D(Dataset):
         self.normalize = lambda x : T.normalize(x, norm_mean, norm_std)
 
         aug = iaa.Sequential([
-            iaa.Fliplr(0.5),
+            #iaa.Fliplr(0.5),
             #iaa.Flipud(0.5),
             iaa.Affine(scale=(0.2, 2), rotate=(-60, 60)),
         ])
@@ -81,21 +81,20 @@ class LS3D(Dataset):
 
             # Create heatmap
             h, w, _ = img.shape
-            hm = np.zeros((len(ann), h, w), dtype=np.float32)
+            hm = np.zeros((len(ann), h // 4, w // 4), dtype=np.float32)
             sigma = self.sigma
             for i in range(len(ann)):
-                x, y = ann[i].x, ann[i].y
+                x, y = ann[i].x // 4, ann[i].y // 4
 
                 ul = [int(x - 2 * sigma), int(y - 2 * sigma)]
                 br = [int(x + 2 * sigma + 1), int(y + 2 * sigma + 1)]
-                if (ul[0] >= w or ul[1] >= h or
-                    br[0] < 0 or br[1] < 0):
+                if (ul[0] >= w or ul[1] >= h or br[0] < 0 or br[1] < 0):
                     continue
 
-                g_x = max(0, -ul[0]), min(br[0], w) - ul[0]
-                g_y = max(0, -ul[1]), min(br[1], h) - ul[1]
-                img_x = max(0, ul[0]), min(br[0], w)
-                img_y = max(0, ul[1]), min(br[1], h)
+                g_x = max(0, -ul[0]), min(br[0], w // 4) - ul[0]
+                g_y = max(0, -ul[1]), min(br[1], h // 4) - ul[1]
+                img_x = max(0, ul[0]), min(br[0], w // 4)
+                img_y = max(0, ul[1]), min(br[1], h // 4)
                 if (img_x[1] - img_x[0] <= 0 or img_y[1] - img_y[0] <= 0 or
                     g_x[1] - g_x[0] <= 0 or g_y[1] - g_y[0] <= 0):
                     continue

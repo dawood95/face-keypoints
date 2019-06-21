@@ -43,12 +43,17 @@ data = load_data(
 model = Model(68)
 
 # Setup Optimizer
-model_optimizer = Adam(
-    model.parameters(),
-    lr=args.lr,
-    #final_lr=0.1,
-    weight_decay=args.weight_decay
-)
+decay_params = []
+no_decay_params = []
+for k, p in model.named_parameters():
+    if 'bias' in k or 'bn' in k:
+        no_decay_params.append(p)
+    else:
+        decay_params.append(p)
+
+model_optimizer = Adam([{'params': no_decay_params},
+                        {'params': decay_params, 'weight_decay': args.weight_decay}],
+                       lr=args.lr)
 
 if args.pretrained:
     data = torch.load(args.pretrained, map_location='cpu')
@@ -82,7 +87,7 @@ logger    = Logger(
 )
 
 scheduler = lr_scheduler.StepLR(
-    model_optimizer, args.lr_patience, gamma=0.5
+    model_optimizer, args.lr_patience, gamma=0.1
 )
 
 # Setup and start Trainer
