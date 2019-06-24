@@ -55,6 +55,7 @@ class LS3D(Dataset):
         masks = []
 
         data = self.data[idx]
+        mask_num = 0
         for img, ann in data:
             # Load image and keypoints
             img = np.array(Image.open(img).convert('RGB'))
@@ -62,9 +63,11 @@ class LS3D(Dataset):
             ann = [ia.Keypoint(x, y) for (x, y) in ann]
             ann = ia.KeypointsOnImage(ann, img.shape)
 
+            mask_num += 1
+
             h, w, _ = img.shape
             mask = np.zeros((h, w))
-            mask[:] = 1
+            mask[:] = mask_num
 
             # Augment image and keypoints
             if self.augment:

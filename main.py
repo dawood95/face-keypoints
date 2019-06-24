@@ -40,7 +40,7 @@ data = load_data(
 )
 
 # Setup Model
-model = Model(68)
+model = Model(68 + 1)
 
 # Setup Optimizer
 decay_params = []

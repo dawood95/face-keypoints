@@ -102,13 +102,18 @@ class HRFPN34(nn.Module):
         factor = {}
         loss = {}
         hm_mask = mask.repeat(1, hm.shape[1], 1, 1)
+        mask_vals = list(range(1, int(mask.max().data.item()) + 1))
         for i, pred in enumerate(preds):
             _, _, h, w = pred.shape
             hm_gt    = F.interpolate(hm, (h, w), mode="bilinear", align_corners=True)
             mask_gt  = F.interpolate(hm_mask, (h, w))
-            pred[mask_gt == 0] = hm_gt[mask_gt == 0]
 
-            diff = (pred - hm_gt) ** 2
+            hm_pred  = pred[:, :-1]
+            ae_pred  = pred[:, -1].unsqueeze(1)
+
+            hm_pred[mask_gt == 0] = hm_gt[mask_gt == 0]
+
+            diff = (hm_pred - hm_gt) ** 2
 
             mask = (hm_gt > 0).float()
             npos = int(mask.sum().data.item())
@@ -124,5 +129,31 @@ class HRFPN34(nn.Module):
 
             factor['mse_pos_%d'%i] = 1
             factor['mse_neg_%d'%i] = 1
+
+            means = []
+            loss['pull_loss_%d'%i] = 0
+            loss['push_loss_%d'%i] = 0
+            factor['pull_loss_%d'%i] = 1e-1
+            factor['push_loss_%d'%i] = 1e-1
+            for val in mask_vals:
+                masked_pred = ae_pred[mask_gt[:, 0].unsqueeze(1) == val]
+                mean = masked_pred.mean()
+                means.append(mean)
+
+                pull_loss = (masked_pred - mean) ** 2
+                pull_loss = pull_loss.mean()
+
+                loss['pull_loss_%d'%i] += pull_loss
+
+            for m, mean1 in enumerate(means):
+                for n, mean2 in enumerate(means):
+                    if m == n: continue
+
+                    x = (mean1 - mean2) ** 2
+                    x = -0.5 * x
+                    push_loss = torch.exp(x)
+
+                    loss['push_loss_%d'%i] += push_loss
+            loss['push_loss_%d'%i] /= len(means)**2
 
         return loss, factor

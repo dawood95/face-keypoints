@@ -26,7 +26,7 @@ class LR_Finder:
         self.module  = model.module if cuda else model
         self.optim   = optim
         self.length  = 100
-        self.sched   = ExponentialLR(optim, 1e-1, self.length)
+        self.sched   = ExponentialLR(optim, 1e-3, self.length)
         self.cuda    = cuda
         self.name    = name
 
