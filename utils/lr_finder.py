@@ -51,7 +51,6 @@ class LR_Finder:
             preds = self.model(img)
             loss, factor = calc_loss(preds, hm, mask)
 
-            self.sched.step()
             lr.append(self.sched.get_lr()[0])
 
             for k in loss:
@@ -69,6 +68,8 @@ class LR_Finder:
             total_loss.backward()
             self.optim.step()
 
+            self.sched.step()
+            
             total_loss = total_loss.item()
             losses['total'].append(total_loss)
 

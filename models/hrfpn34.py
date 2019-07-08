@@ -133,11 +133,11 @@ class HRFPN34(nn.Module):
             means = []
             loss['pull_loss_%d'%i] = 0
             loss['push_loss_%d'%i] = 0
-            factor['pull_loss_%d'%i] = 1e-1
-            factor['push_loss_%d'%i] = 1e-1
+            factor['pull_loss_%d'%i] = 1
+            factor['push_loss_%d'%i] = 1
             for val in mask_vals:
                 masked_pred = ae_pred[mask_gt[:, 0].unsqueeze(1) == val]
-                mean = masked_pred.view(pred.shape[0], -1).mean(1)
+                mean = masked_pred.mean()
                 means.append(mean)
 
                 pull_loss = (masked_pred - mean) ** 2
@@ -149,11 +149,13 @@ class HRFPN34(nn.Module):
                 for n, mean2 in enumerate(means):
                     if m == n: continue
 
-                    x = (mean1 - mean2) ** 2
-                    x = -0.5 * x
-                    push_loss = torch.exp(x).mean()
+                    diff = torch.clamp(1 - torch.abs(mean1 - mean2), min=0)
+                    push_loss = diff
+                    #x = (mean1 - mean2) ** 2
+                    #x = -0.5 * x
+                    #push_loss = torch.exp(x).mean()
 
                     loss['push_loss_%d'%i] += push_loss
-            loss['push_loss_%d'%i] /= len(means)
+            loss['push_loss_%d'%i] /= len(means)*2
 
         return loss, factor
