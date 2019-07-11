@@ -33,7 +33,7 @@ class LS3D(Dataset):
         aug = iaa.Sequential([
             #iaa.Fliplr(0.5),
             #iaa.Flipud(0.5),
-            iaa.Affine(scale=(0.2, 2), rotate=(-60, 60)),
+            iaa.Affine(scale=(0.2, 2), rotate=(-90, 90)),
         ])
         resize = iaa.Resize(image_size)
 
