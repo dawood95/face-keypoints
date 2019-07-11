@@ -133,8 +133,8 @@ class HRFPN34(nn.Module):
             means = []
             loss['pull_loss_%d'%i] = 0
             loss['push_loss_%d'%i] = 0
-            factor['pull_loss_%d'%i] = 1
-            factor['push_loss_%d'%i] = 1
+            factor['pull_loss_%d'%i] = 1e-1
+            factor['push_loss_%d'%i] = 1e-1
             for val in mask_vals:
                 masked_pred = ae_pred[mask_gt[:, 0].unsqueeze(1) == val]
                 mean = masked_pred.mean()

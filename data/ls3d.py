@@ -30,10 +30,14 @@ class LS3D(Dataset):
         norm_std  = [0.229, 0.224, 0.225]
         self.normalize = lambda x : T.normalize(x, norm_mean, norm_std)
 
-        aug = iaa.Sequential([
-            #iaa.Fliplr(0.5),
-            #iaa.Flipud(0.5),
-            iaa.Affine(scale=(0.2, 2), rotate=(-90, 90)),
+        aug = iaa.SomeOf(3, [
+            iaa.CropAndPad(percent=(-0.25, 0.25)),
+            iaa.GaussianBlur(sigma=(0.0, 1.0)),
+            iaa.Dropout(p=(0, 0.2)),
+            iaa.CoarseDropout((0.0, 0.05), size_percent=(0.02, 0.25)),
+            iaa.Sometimes(0.50, iaa.Affine(scale=(0.3, 2.0))),
+            iaa.Sometimes(0.50, iaa.Affine(rotate=(-90, 90))),
+            iaa.Sometimes(0.50, iaa.Affine(shear=(-10, 10)))
         ])
         resize = iaa.Resize(image_size)
 
@@ -43,7 +47,7 @@ class LS3D(Dataset):
         self.sigma   = sigma
         self.augment = augment
 
-        size = 4 * sigma + 1
+        size = 6 * sigma + 1
         x = np.arange(0, size, 1, float)
         y = x[:, np.newaxis]
         x0 = y0 = size // 2
@@ -89,8 +93,8 @@ class LS3D(Dataset):
             for i in range(len(ann)):
                 x, y = ann[i].x // 4, ann[i].y // 4
 
-                ul = [int(x - 2 * sigma), int(y - 2 * sigma)]
-                br = [int(x + 2 * sigma + 1), int(y + 2 * sigma + 1)]
+                ul = [int(x - 3 * sigma), int(y - 3 * sigma)]
+                br = [int(x + 3 * sigma + 1), int(y + 3 * sigma + 1)]
                 if (ul[0] >= w or ul[1] >= h or br[0] < 0 or br[1] < 0):
                     continue
 
