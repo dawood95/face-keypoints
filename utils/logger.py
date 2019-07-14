@@ -1,4 +1,4 @@
-from comet_ml import Experiment, OfflineExperiment
+from comet_ml import Experiment
 from pathlib import Path
 import git
 import torch
@@ -12,9 +12,8 @@ class Logger:
         # setup comet-ml
         key_path = Path('~/.cometml').expanduser().as_posix()
         api_key = open(key_path).read().strip()
-        experiment = OfflineExperiment(api_key, project_name,
-                                       disabled=disabled,
-                                       offline_directory='./')
+        experiment = Experiment(api_key, project_name,
+                                disabled=disabled)
         
         experiment.log_parameter('commit_id', commit_id)
         if comment:

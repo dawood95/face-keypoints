@@ -1,5 +1,7 @@
 import torch
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.use('Agg')
 
 from torch.optim.lr_scheduler import _LRScheduler
 from tqdm import tqdm
