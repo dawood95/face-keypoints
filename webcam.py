@@ -18,6 +18,7 @@ vid = cv2.VideoCapture(0)
 model   = Model(68).cuda()
 weights = torch.load("./hrfpn34.weights")['state_dict']
 model.load_state_dict(weights)
+model.eval()
 #model   = model.half()
 
 while True:
