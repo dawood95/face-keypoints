@@ -9,6 +9,6 @@ One stage multi-person face keypoint detection.
 - [Pretrained model](https://purdue0-my.sharepoint.com/:u:/g/personal/dawood0_purdue_edu/ETJGzOVjSEZJuVbgoAQhiMIBYjcAnEK9Mgsv5KiAVqJZjg?e=Jb0pb8)
 
 ### TODO
-[ ] Add proper metrics. Something to compare properly with other 2-stage metrics.
-[ ] Why is val loss not going down, but output look good ?
-[ ] Add associative embedding 
+- [ ] Add proper metrics. Something to compare properly with other 2-stage metrics.
+- [ ] Why is val loss not going down, but output look good ?
+- [ ] Add associative embedding 
