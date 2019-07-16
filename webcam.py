@@ -16,7 +16,7 @@ norm_std  = [0.229, 0.224, 0.225]
 vid = cv2.VideoCapture(0)
 
 model   = Model(68).cuda()
-weights = torch.load("./hrfpn34.weights")['state_dict']
+weights = torch.load("./hrfpn34.weights", map_location="cpu")['state_dict']
 model.load_state_dict(weights)
 model.eval()
 #model   = model.half()
